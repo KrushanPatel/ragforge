@@ -13,7 +13,8 @@ Closes #
 
 ## Checklist
 
-- [ ] `ruff check .` and `ruff format --check .` pass
-- [ ] `pytest` passes
+- [ ] `uv run ruff check .` and `uv run ruff format --check .` pass
+- [ ] `uv run pytest` passes
+- [ ] `uv.lock` committed if dependencies changed
 - [ ] Tests added or updated for this change
 - [ ] Docs / README updated if behaviour changed

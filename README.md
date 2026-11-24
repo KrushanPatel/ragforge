@@ -12,10 +12,11 @@ Production-grade RAG, built step by step. Fully self-hosted (Ollama + Qdrant + s
 ```bash
 git clone https://github.com/KrushanPatel/ragforge.git
 cd ragforge
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
+uv sync
 cp .env.example .env
 ```
+
+Requires [uv](https://docs.astral.sh/uv/getting-started/installation/).
 
 You'll need [Ollama](https://ollama.com) running locally with the configured model (`ollama pull llama3.1:8b`).
 

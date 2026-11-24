@@ -10,28 +10,32 @@ Thanks for your interest in contributing! RagForge is built step by step, and co
 
 ## Development setup
 
-Requirements: Python 3.10+, and for end-to-end runs, [Ollama](https://ollama.com) running locally.
+Requirements: [uv](https://docs.astral.sh/uv/getting-started/installation/), and for end-to-end runs, [Ollama](https://ollama.com) running locally. uv installs the right Python version for you (see `.python-version`).
 
 ```bash
 git clone https://github.com/<your-username>/ragforge.git
 cd ragforge
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
+uv sync                          # creates .venv and installs the project + dev tools
 cp .env.example .env             # adjust settings if needed
 ```
+
+### Managing dependencies
+
+- Add a runtime dependency: `uv add <package>`
+- Add a dev-only dependency: `uv add --dev <package>`
+- Commit both `pyproject.toml` and `uv.lock` together. Never edit `uv.lock` by hand.
 
 ## Before you open a PR
 
 Run the same checks CI runs:
 
 ```bash
-ruff check .
-ruff format --check .
-pytest
+uv run ruff check .
+uv run ruff format --check .
+uv run pytest
 ```
 
-`ruff format .` and `ruff check --fix .` will fix most style issues automatically.
+`uv run ruff format .` and `uv run ruff check --fix .` will fix most style issues automatically.
 
 ## Making changes
 
