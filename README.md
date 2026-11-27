@@ -1,4 +1,4 @@
-# RAGStack — Production-Grade Retrieval-Augmented Generation
+# Ragforge — Production-Grade Retrieval-Augmented Generation
 
 > A reference implementation and operating guide for building, evaluating, deploying, and running Retrieval-Augmented Generation (RAG) systems in production.
 
@@ -36,7 +36,7 @@
 
 ## Overview
 
-RAGStack answers natural-language questions over your private data by retrieving relevant passages from a curated knowledge base and grounding a Large Language Model's (LLM) response in those passages, with citations.
+Ragforge answers natural-language questions over your private data by retrieving relevant passages from a curated knowledge base and grounding a Large Language Model's (LLM) response in those passages, with citations.
 
 A demo RAG system is easy to build. A **production** RAG system must also be:
 
@@ -137,12 +137,12 @@ flowchart LR
 ## Repository Layout
 
 ```
-ragstack/
+ragforge/
 ├── apps/
 │   ├── api/                  # Query service (FastAPI)
 │   ├── ingestion/            # Ingestion workers
 │   └── admin/                # Index management & feedback review UI
-├── ragstack/
+├── ragforge/
 │   ├── connectors/           # Source connectors (S3, Confluence, ...)
 │   ├── parsing/              # Parsers, OCR, table extraction
 │   ├── chunking/             # Chunking strategies
@@ -193,8 +193,8 @@ ragstack/
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/your-org/ragstack.git
-cd ragstack
+git clone https://github.com/your-org/ragforge.git
+cd ragforge
 make install          # creates venv, installs deps, sets up pre-commit hooks
 cp .env.example .env  # then fill in secrets
 ```
@@ -559,7 +559,7 @@ Interactive OpenAPI docs are served at `/docs`.
 
 ```bash
 make build                       # builds api, worker, admin images
-docker push registry.example.com/ragstack/api:$(git rev-parse --short HEAD)
+docker push registry.example.com/ragforge/api:$(git rev-parse --short HEAD)
 ```
 
 Images are multi-stage, run as non-root, pinned to digest, and scanned for vulnerabilities in CI.
@@ -567,8 +567,8 @@ Images are multi-stage, run as non-root, pinned to digest, and scanned for vulne
 ### Kubernetes (Helm)
 
 ```bash
-helm upgrade --install ragstack deploy/helm/ragstack \
-  --namespace ragstack --create-namespace \
+helm upgrade --install ragforge deploy/helm/ragforge \
+  --namespace ragforge --create-namespace \
   -f deploy/helm/values-prod.yaml \
   --set image.tag=$GIT_SHA
 ```

@@ -1,6 +1,6 @@
-# Implementation Plan: RAGStack (production RAG)
+# Implementation Plan: Ragforge (production RAG)
 
-Source spec: `README.md` (RAGStack — Production-Grade Retrieval-Augmented Generation). On 2026-11-27 this replaced the earlier CLI-only ragforge v1 plan, at the user's direction.
+Source spec: `README.md` (Ragforge — Production-Grade Retrieval-Augmented Generation). On 2026-11-27 this replaced the earlier CLI-only ragforge v1 plan, at the user's direction.
 
 ## Overview
 
@@ -16,7 +16,7 @@ The work is sliced vertically. Phase 1 delivers a thin but real path from ingest
 These resolve the swappable choices in the README's component table. Each one needs human review; see Open Questions.
 
 - **Stack reconciliation.** The README supersedes CLAUDE.md's "Typer CLI, Qdrant, sentence-transformers" project line. Task 1 updates CLAUDE.md and `pyproject.toml` to match. **uv stays the package manager** and `make` targets wrap `uv run …`, which satisfies both the README's `make` interface and the CLAUDE.md uv rule.
-- **Package name and layout.** The README's `ragstack/` module layout (`connectors/`, `parsing/`, `chunking/`, …) lives under `src/ragforge/` so the uv build backend and the existing repo keep working. Apps go in `apps/api`, `apps/ingestion` and `apps/admin`. *Whether to rename the package to `ragstack` is an open question.*
+- **Package name and layout.** The README's `ragforge/` module layout (`connectors/`, `parsing/`, `chunking/`, …) lives under `src/ragforge/` so the uv build backend and the existing repo keep working. Apps go in `apps/api`, `apps/ingestion` and `apps/admin`. The project and package name is **Ragforge** (`ragforge`), decided by the user on 2026-11-27.
 - **Vector store: Qdrant.** It's a README-listed option and already set up in this repo (`/qdrant-up`). Blue/green re-indexing uses Qdrant collection aliases.
 - **Keyword index: OpenSearch (BM25).** The README's `make up` includes it.
 - **Document store, metadata and ACLs: Postgres,** with Alembic migrations. pgvector isn't needed because Qdrant holds the vectors.
@@ -137,7 +137,7 @@ Full task details (acceptance criteria, verification, files) are in `tasks/todo.
 
 ## Open Questions
 
-1. **Package name.** Keep the `ragforge` package/CLI (less churn) or rename to `ragstack` as the README uses?
+1. ~~**Package name.**~~ Resolved: **Ragforge** (`ragforge`).
 2. **Cloud for Terraform and Helm values:** AWS, GCP or Azure? This blocks Task 30 and the managed-service choices (SQS vs Kafka, secrets manager).
 3. **Queue in production:** Kafka (README default) or a managed alternative? Dev uses Redis Streams either way.
 4. **LLM in staging/prod:** hosted provider or self-hosted? Dev uses Ollama, as you chose earlier.

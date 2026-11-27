@@ -1,4 +1,4 @@
-# RAGStack — Task List
+# Ragforge — Task List
 
 Plan: `tasks/plan.md`. Spec: `README.md`.
 
@@ -9,7 +9,7 @@ Plan: `tasks/plan.md`. Spec: `README.md`.
 ## Phase 1: Foundation + thin end-to-end slice
 
 ### Task 1: Project restructure, layered config, Makefile, CLAUDE.md update
-**Description:** Create the README module layout under `src/ragforge/` and the `apps/`, `configs/`, `prompts/`, `evals/`, `deploy/`, `tests/{unit,integration,load}` directories. Add a layered config: `configs/base.yaml` → `<env>.yaml` → env vars, typed with pydantic-settings, with secrets taken only from env and `RAG_ENV` selecting the environment. Add a Makefile whose targets wrap `uv run` (`install`, `lint`, `test`, plus stubs for the rest). Add `.env.example`, mypy and pre-commit. Update CLAUDE.md so the project line and stack match the RAGStack decisions.
+**Description:** Create the README module layout under `src/ragforge/` and the `apps/`, `configs/`, `prompts/`, `evals/`, `deploy/`, `tests/{unit,integration,load}` directories. Add a layered config: `configs/base.yaml` → `<env>.yaml` → env vars, typed with pydantic-settings, with secrets taken only from env and `RAG_ENV` selecting the environment. Add a Makefile whose targets wrap `uv run` (`install`, `lint`, `test`, plus stubs for the rest). Add `.env.example`, mypy and pre-commit. Update CLAUDE.md so the project line and stack match the Ragforge decisions.
 **Acceptance criteria:**
 - [ ] `Settings.load()` merges base → env YAML → env vars, and tests prove the override order
 - [ ] A secret key in YAML is rejected at load time
@@ -369,14 +369,14 @@ Plan: `tasks/plan.md`. Spec: `README.md`.
 **Scope:** M
 
 ### Task 29: Helm chart (HPA, KEDA, PDBs, probes, NetworkPolicies)
-**Description:** `deploy/helm/ragstack` contains: the api Deployment (HPA, at least 3 replicas, spread across zones), the ingestion worker (KEDA on queue lag, scale to zero), optional reranker and embedder workloads, PDBs, resource requests and limits, probes, NetworkPolicies that restrict egress, and values files for dev, staging and prod.
+**Description:** `deploy/helm/ragforge` contains: the api Deployment (HPA, at least 3 replicas, spread across zones), the ingestion worker (KEDA on queue lag, scale to zero), optional reranker and embedder workloads, PDBs, resource requests and limits, probes, NetworkPolicies that restrict egress, and values files for dev, staging and prod.
 **Acceptance criteria:**
 - [ ] `helm lint` and `helm template` pass for every values file
 - [ ] The chart installs on a local kind cluster and `/readyz` passes
 - [ ] NetworkPolicies block egress to anything not on the allow-list (tested on kind)
 **Verification:** `helm lint`; kind install smoke test
 **Dependencies:** Task 27
-**Files:** `deploy/helm/ragstack/**`
+**Files:** `deploy/helm/ragforge/**`
 **Scope:** M
 
 ### Task 30: Terraform infrastructure
