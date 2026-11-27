@@ -1,0 +1,33 @@
+name: Stale
+
+on:
+  schedule:
+    - cron: "30 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/stale@4391f3da665fdf50b6810c1a66712fb9ba21aa93 # v11.0.0
+        with:
+          days-before-issue-stale: 60
+          days-before-pr-stale: 30
+          days-before-close: 14
+          stale-issue-label: stale
+          stale-pr-label: stale
+          exempt-issue-labels: "good first issue,help wanted,needs triage,breaking change"
+          exempt-pr-labels: "breaking change"
+          stale-issue-message: >
+            This issue has had no activity for 60 days, so it's been marked stale. It will be
+            closed in 14 days unless someone comments or removes the `stale` label.
+          stale-pr-message: >
+            This pull request has had no activity for 30 days, so it's been marked stale. It will
+            be closed in 14 days unless it's updated. You're welcome to reopen it afterwards.
