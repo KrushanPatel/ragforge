@@ -1,0 +1,7 @@
+# Code owners are requested for review automatically on matching PRs.
+# Later matches take precedence. Docs: https://docs.github.com/articles/about-code-owners
+
+*                @KrushanPatel
+/.github/        @KrushanPatel
+/pyproject.toml  @KrushanPatel
+/uv.lock         @KrushanPatel

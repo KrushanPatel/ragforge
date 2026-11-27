@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and help
+    url: https://github.com/KrushanPatel/ragforge/discussions/categories/q-a
+    about: Ask usage and development questions in Discussions Q&A.
+  - name: Ideas and general discussion
+    url: https://github.com/KrushanPatel/ragforge/discussions/categories/ideas
+    about: Float an idea before turning it into a feature request.
+  - name: Report a security vulnerability
+    url: https://github.com/KrushanPatel/ragforge/security/advisories/new
+    about: Report vulnerabilities privately. Please don't open a public issue.
