@@ -1,34 +1,67 @@
 # Ragforge — Task List
 
-Plan: `tasks/plan.md`. Spec: `README.md`.
+Plan: `tasks/plan.md`. Spec: `docs/PRD.md` + `README.md`.
 
-**Standard verification for every task:** `/verify` (`uv run ruff check; uv run ruff format --check; uv run pytest -q`). Once Task 1 lands, `make lint test` also runs mypy. Following CLAUDE.md, each task starts with a short plan and waits for approval before code is written. Run the code-reviewer agent at each checkpoint.
+Split tasks use letter suffixes (1a/1b, 2a/2b, 30a–30c); numbering is otherwise stable.
+
+**Standard verification for every task:** `/verify` (`uv run ruff check; uv run ruff format --check; uv run pytest -q`). Once Task 1b lands, `make lint test` also runs mypy. Following CLAUDE.md, each task starts with a short plan and waits for approval before code is written. Run the code-reviewer agent at each checkpoint.
 
 ---
 
 ## Phase 1: Foundation + thin end-to-end slice
 
-### Task 1: Project restructure, layered config, Makefile, CLAUDE.md update
-**Description:** Create the README module layout under `src/ragforge/` and the `apps/`, `configs/`, `prompts/`, `evals/`, `deploy/`, `tests/{unit,integration,load}` directories. Add a layered config: `configs/base.yaml` → `<env>.yaml` → env vars, typed with pydantic-settings, with secrets taken only from env and `RAG_ENV` selecting the environment. Add a Makefile whose targets wrap `uv run` (`install`, `lint`, `test`, plus stubs for the rest). Add `.env.example`, mypy and pre-commit. Update CLAUDE.md so the project line and stack match the Ragforge decisions.
+### Task 1a: Layout + layered config
+**Description:** Create the README module layout under `src/ragforge/` and the `apps/`, `configs/`, `prompts/`, `evals/`, `deploy/`, `tests/{unit,integration,load}` directories. Add a layered config: `configs/base.yaml` → `<env>.yaml` → env vars, typed with pydantic-settings, with secrets taken only from env and `RAG_ENV` selecting the environment. Add `.env.example`.
 **Acceptance criteria:**
 - [ ] `Settings.load()` merges base → env YAML → env vars, and tests prove the override order
 - [ ] A secret key in YAML is rejected at load time
-- [ ] `make install lint test` work, and CLAUDE.md reflects the new stack (uv rule kept)
-**Verification:** `/verify`; `make lint` (ruff + mypy) clean; `RAG_ENV=staging uv run python -c "…Settings.load()"` shows staging values
+- [ ] `.env.example` lists every env var the config reads, with no real values
+**Verification:** `/verify`; `RAG_ENV=staging uv run python -c "…Settings.load()"` shows staging values
 **Dependencies:** None
-**Files:** `src/ragforge/config.py`, `configs/*.yaml`, `Makefile`, `.env.example`, `.pre-commit-config.yaml`, `pyproject.toml`, `CLAUDE.md`, `tests/unit/test_config.py`
-**Scope:** M
+**Files:** `src/ragforge/config.py`, `configs/*.yaml`, `.env.example`, `tests/unit/test_config.py`
+**Scope:** S–M
 
-### Task 2: Local infrastructure (docker-compose) + API skeleton with health probes
-**Description:** Add `docker-compose.yml` with a `core` profile (Qdrant, Postgres, Redis, OpenSearch) and an `obs` profile (Jaeger, Prometheus, Grafana), with `make up`/`make down`. Add a FastAPI app in `apps/api` with `/healthz` (liveness) and `/readyz` (pings each configured dependency) and `make api` (uvicorn with reload). Add the initial Alembic setup for the Postgres document store.
+### Task 1b: Tooling (Makefile, mypy, pre-commit) + CLAUDE.md update
+**Description:** Add a Makefile whose targets wrap `uv run` (`install`, `lint`, `test`, plus stubs for the rest), mypy configured in `pyproject.toml`, and `.pre-commit-config.yaml`. Update CLAUDE.md: the project line and stack match the Ragforge decisions, it points to `docs/PRD.md` (spec) and `tasks/` (plan), and the uv and CPU-only torch rules are kept.
+**Acceptance criteria:**
+- [ ] `make install lint test` work; `make lint` runs ruff + mypy
+- [ ] `pre-commit run --all-files` passes
+- [ ] CLAUDE.md reflects the new stack, points to `docs/PRD.md` and `tasks/`, and keeps the uv rule
+**Verification:** `/verify`; `make lint test` clean
+**Dependencies:** Task 1a
+**Files:** `Makefile`, `pyproject.toml`, `.pre-commit-config.yaml`, `CLAUDE.md`
+**Scope:** S
+
+## Checkpoint 1a: After Tasks 1a–1b
+- [ ] `/verify` + `make lint test` pass (ruff + mypy)
+- [ ] CLAUDE.md diff reviewed by the human
+
+### Task 2a: Local infrastructure (docker-compose) + Postgres schema
+**Description:** Add `docker-compose.yml` with a `core` profile (Qdrant, Postgres, Redis, OpenSearch) and an `obs` profile (Jaeger, Prometheus, Grafana), with `make up`/`make down`. Add the initial Alembic setup for the Postgres document store.
 **Acceptance criteria:**
 - [ ] `make up` brings up the core services healthy; `make down` stops them without deleting volumes
-- [ ] `/readyz` returns 503 naming the failing dependency when one is down, and 200 when all are up
 - [ ] `alembic upgrade head` creates the `documents` and `chunks` metadata tables
-**Verification:** `/verify` (readyz tested with fakes); manual check: `make up && make api`, `curl localhost:8000/readyz`, then stop Redis and see a 503
-**Dependencies:** Task 1
-**Files:** `docker-compose.yml`, `apps/api/main.py`, `src/ragforge/storage/db.py`, `migrations/`, `Makefile`, `tests/unit/test_health.py`
+- [ ] Service URLs come from config (Task 1a), not hardcoded
+**Verification:** `/verify`; manual check: `make up`, `docker compose ps` all healthy, `alembic upgrade head` then `alembic downgrade base` both succeed
+**Dependencies:** Task 1b
+**Files:** `docker-compose.yml`, `src/ragforge/storage/db.py`, `migrations/`, `Makefile`
 **Scope:** M
+
+### Task 2b: API skeleton with health probes
+**Description:** Add a FastAPI app in `apps/api` with `/healthz` (liveness) and `/readyz` (pings each configured dependency), plus `make api` (uvicorn with reload).
+**Acceptance criteria:**
+- [ ] `/healthz` returns 200 whenever the process is up
+- [ ] `/readyz` returns 503 naming the failing dependency when one is down, and 200 when all are up
+- [ ] `make api` serves the app with OpenAPI docs at `/docs`
+**Verification:** `/verify` (readyz tested with fakes); manual check: `make up && make api`, `curl localhost:8000/readyz`, then stop Redis and see a 503
+**Dependencies:** Task 2a
+**Files:** `apps/api/main.py`, `Makefile`, `tests/unit/test_health.py`
+**Scope:** S
+
+## Checkpoint 1b: After Tasks 2a–2b
+- [ ] `/verify` + `make lint test` pass
+- [ ] `make up` → `make api` → `curl /readyz` returns 200
+- [ ] Human review of config layout and compose services before ingest work
 
 ### Task 3: Synchronous ingest of Markdown into Qdrant + Postgres
 **Description:** Build the first full write path. `make ingest SOURCE=./samples/docs` (a Typer CLI) parses Markdown, runs recursive token chunking, embeds through the provider interface (sentence-transformers adapter), upserts into Qdrant with payload `{doc_id, version, chunk_index, text, source_uri, embed_model, embed_model_version}`, and writes document and chunk metadata to Postgres. Add a `samples/docs` corpus.
@@ -37,7 +70,7 @@ Plan: `tasks/plan.md`. Spec: `README.md`.
 - [ ] Every Qdrant point records the embedding model name and version; the collection's vector size comes from the model
 - [ ] Re-running the ingest creates no duplicates (deterministic IDs: `hash(source_id, version, chunk_index)`)
 **Verification:** `/verify` (chunker unit tests; pipeline test with in-memory Qdrant, a fake embedder and SQLite or testcontainers Postgres); manual check: `make up && make ingest SOURCE=./samples/docs`, then compare counts
-**Dependencies:** Task 2
+**Dependencies:** Task 2b
 **Files:** `src/ragforge/{parsing,chunking,embeddings,storage}/…`, `apps/ingestion/cli.py`, `samples/docs/`, `tests/unit/…`, `tests/integration/test_ingest.py`
 **Scope:** M
 
@@ -53,17 +86,17 @@ Plan: `tasks/plan.md`. Spec: `README.md`.
 **Scope:** M
 
 ### Task 5: Evaluation harness v0 (golden set, Recall@k/MRR, `make eval`)
-**Description:** Add `evals/datasets/golden_v1.jsonl` (about 30 question/answer/source triples over `samples/docs`), `evals/metrics/` (Recall@k, MRR, nDCG) and `evals/run_eval.py`, which writes a JSON + Markdown report. Add `make eval DATASET=… [INDEX=…]`. This puts measurement in place before anything is tuned.
+**Description:** Add `evals/datasets/golden_v1.jsonl` (about 30 question/answer/source triples over `samples/docs`), `evals/metrics/` (Recall@k, MRR, nDCG) and `evals/run_eval.py`, which writes a JSON + Markdown report. Add `make eval DATASET=… [INDEX=…]`. This puts measurement in place before anything is tuned. **Gate:** the golden set should be built over the real first corpus named in `docs/PRD.md` → Product Context → *Data and domain* (Open Question 5). If that is still TBD, build `golden_v1` over `samples/docs`, mark it `provisional: true` in the dataset header, and replace it before Task 25 enforces gates.
 **Acceptance criteria:**
 - [ ] `make eval` prints Recall@10, MRR and nDCG and writes `evals/reports/<timestamp>.{json,md}`
 - [ ] The metric functions have unit tests against hand-computed cases
 - [ ] Two reports can be diffed (`run_eval.py --compare A B`)
 **Verification:** `/verify`; manual check: `make eval DATASET=evals/datasets/golden_v1.jsonl` gives a baseline report; record the baseline in the plan
-**Dependencies:** Task 4
+**Dependencies:** Task 4; PRD Product Context *Data and domain* filled (Open Question 5), or the provisional fallback above
 **Files:** `evals/run_eval.py`, `evals/metrics/*.py`, `evals/datasets/golden_v1.jsonl`, `Makefile`, `tests/unit/test_metrics.py`
 **Scope:** M
 
-## Checkpoint 1: After Tasks 1–5
+## Checkpoint 1: After Tasks 1a–5
 - [ ] `/verify` + `make lint test` pass
 - [ ] `make up` → `make ingest` → `curl /v1/query` → `make eval` works end to end
 - [ ] Baseline eval report saved
@@ -105,6 +138,11 @@ Plan: `tasks/plan.md`. Spec: `README.md`.
 **Dependencies:** Task 7
 **Files:** `src/ragforge/storage/{versions,stores,reconcile}.py`, `migrations/`, `tests/integration/test_versioning.py`
 **Scope:** M
+
+## Checkpoint 2a: After Tasks 6–8
+- [ ] `/verify` + `make lint test` pass
+- [ ] Re-ingesting an unchanged corpus is a no-op; an edited doc replaces only its chunks
+- [ ] Human review before continuing
 
 ### Task 9: Async ingestion: queue + worker + `/v1/documents` endpoints
 **Description:** Add a `Queue` interface with a Redis Streams adapter. `DocumentEvent{source_id, uri, version, acl, op}`. Add `make worker` (consumer group, retries with backoff, a dead-letter stream) and the endpoints `POST /v1/documents`, `DELETE /v1/documents/{id}` and `GET /v1/documents/{id}/status`.
@@ -160,6 +198,11 @@ Plan: `tasks/plan.md`. Spec: `README.md`.
 **Files:** `src/ragforge/reranking/{base,cross_encoder}.py`, `src/ragforge/retrieval/pipeline.py`, `tests/…`
 **Scope:** S–M
 
+## Checkpoint 3a: After Tasks 11–12
+- [ ] `/verify` + `make lint test` pass
+- [ ] Eval report shows the hybrid + rerank delta over dense-only
+- [ ] Human review before continuing
+
 ### Task 13: Query understanding: condensation, multi-query, HyDE
 **Description:** Store conversation history by `conversation_id` (Redis). Condense follow-up questions into standalone queries, expand into N paraphrases with results fused, and add HyDE as an option. All of these use the LLM gateway and can be toggled by config.
 **Acceptance criteria:**
@@ -191,7 +234,7 @@ Plan: `tasks/plan.md`. Spec: `README.md`.
 ## Phase 4: Generation hardening
 
 ### Task 15: Versioned YAML prompts, with the version recorded per request
-**Description:** Load prompts from `prompts/*.vN.yaml` (with a changelog) and port the README's `answer_with_citations` prompt as v1. Hard-coded prompts are not allowed (a test enforces it). The active prompt version is returned in the response metadata and attached to logs.
+**Description:** Load prompts from `prompts/*.vN.yaml` (with a changelog) and port the PRD's `answer_with_citations` prompt as v1. Hard-coded prompts are not allowed (a test enforces it). The active prompt version is returned in the response metadata and attached to logs.
 **Acceptance criteria:**
 - [ ] The prompt is selected by `generation.prompt_template`, and missing variables fail at startup
 - [ ] The prompt version appears in the response metadata and logs
@@ -211,6 +254,11 @@ Plan: `tasks/plan.md`. Spec: `README.md`.
 **Dependencies:** Task 15
 **Files:** `apps/api/routes/query.py`, `src/ragforge/generation/gateway.py`, `tests/…`
 **Scope:** S–M
+
+## Checkpoint 4a: After Tasks 15–16
+- [ ] `/verify` + `make lint test` pass
+- [ ] `/v1/query` streams tokens over SSE; prompt version appears in the response metadata
+- [ ] Human review before continuing
 
 ### Task 17: Citation validation + optional groundedness check
 **Description:** After generation, every cited ID must exist in the supplied context; invalid citations are stripped or flagged according to config. If `require_citations` is set and the answer has no valid citations, it falls back to "not found". Add an optional sampled groundedness check using an LLM judge.
@@ -264,6 +312,11 @@ Plan: `tasks/plan.md`. Spec: `README.md`.
 **Files:** `src/ragforge/security/{acl,tenancy}.py`, `src/ragforge/retrieval/chokepoint.py`, `tests/security/test_acl_leakage.py`
 **Scope:** M
 
+## Checkpoint 5a: After Tasks 19–20
+- [ ] `/verify` + `make lint test` pass
+- [ ] ACL leakage suite green for every role
+- [ ] Human review before continuing
+
 ### Task 21: Guardrails: prompt-injection detection, untrusted-context wrapping, output moderation
 **Description:** Add an input classifier (heuristics plus an optional model) that flags or blocks injection attempts according to config. Retrieved content is wrapped and labeled as untrusted in the prompt. The output filter blocks policy violations, PII leakage, and untrusted links or images that could exfiltrate data.
 **Acceptance criteria:**
@@ -306,15 +359,20 @@ Plan: `tasks/plan.md`. Spec: `README.md`.
 **Scope:** M
 
 ### Task 24: Prometheus metrics + Grafana dashboards as code
-**Description:** Add the README's metrics table (`rag_request_latency_seconds`, `rag_time_to_first_token_seconds`, `rag_llm_errors_total`, `rag_no_context_found_total`, `rag_cache_hit_ratio`, `rag_tokens_total{type,model,tenant}`, `rag_ingestion_lag_seconds`, `rag_feedback_negative_ratio`) on `/metrics`, plus Grafana dashboards and alert rules in `deploy/grafana/`.
+**Description:** Add the PRD's metrics table (`rag_request_latency_seconds`, `rag_time_to_first_token_seconds`, `rag_llm_errors_total`, `rag_no_context_found_total`, `rag_cache_hit_ratio`, `rag_tokens_total{type,model,tenant}`, `rag_ingestion_lag_seconds`, `rag_feedback_negative_ratio`) on `/metrics`, plus Grafana dashboards and alert rules in `deploy/grafana/`.
 **Acceptance criteria:**
 - [ ] All listed metrics are exported with the documented labels
 - [ ] Dashboards load provisioned in local Grafana
-- [ ] The alert rules encode the README's example thresholds
+- [ ] The alert rules encode the PRD's example thresholds
 **Verification:** `/verify`; manual check: `make up --profile obs` and the dashboards show live traffic
 **Dependencies:** Task 23
 **Files:** `src/ragforge/observability/metrics.py`, `deploy/grafana/{dashboards,alerts}/`, `docker-compose.yml`
 **Scope:** M
+
+## Checkpoint 6a: After Tasks 23–24
+- [ ] `/verify` + `make lint test` pass
+- [ ] Grafana dashboards render from code; one trace shows the query spans
+- [ ] Human review before continuing
 
 ### Task 25: Full eval suite: adversarial set, LLM-as-judge, CI regression gates
 **Description:** Add generation metrics (faithfulness, answer relevance, correctness, citation accuracy, refusal accuracy) via an LLM judge, and safety metrics (injection resistance). Add `evals/gates.yaml` using the README's thresholds and `max_regression` against the stored baseline; `make eval` exits non-zero on a regression. Grow the golden set toward 200+ triples, reviewed by a human.
@@ -368,6 +426,11 @@ Plan: `tasks/plan.md`. Spec: `README.md`.
 **Files:** `.github/workflows/{pr,main}.yml`
 **Scope:** M
 
+## Checkpoint 7a: After Tasks 27–28
+- [ ] `/verify` + `make lint test` pass
+- [ ] CI green on a PR (lint, types, tests, scans)
+- [ ] Human review before continuing
+
 ### Task 29: Helm chart (HPA, KEDA, PDBs, probes, NetworkPolicies)
 **Description:** `deploy/helm/ragforge` contains: the api Deployment (HPA, at least 3 replicas, spread across zones), the ingestion worker (KEDA on queue lag, scale to zero), optional reranker and embedder workloads, PDBs, resource requests and limits, probes, NetworkPolicies that restrict egress, and values files for dev, staging and prod.
 **Acceptance criteria:**
@@ -379,29 +442,60 @@ Plan: `tasks/plan.md`. Spec: `README.md`.
 **Files:** `deploy/helm/ragforge/**`
 **Scope:** M
 
-### Task 30: Terraform infrastructure
-**Description:** `deploy/terraform/` with modules for network, Kubernetes cluster, managed Postgres, Redis, secrets manager, IAM and the vector store, plus per-environment stacks. **Blocked on Open Question 2 (which cloud).**
+## Checkpoint 7b: After Task 29
+- [ ] `/verify` + `make lint test` pass
+- [ ] Helm chart installs on a local kind cluster; probes go green
+- [ ] Human review before cloud infrastructure
+
+### Task 30a: Terraform — network + Kubernetes cluster
+**Description:** `deploy/terraform/modules/{network,cluster}` and the staging stack wiring for them. **Blocked on Open Question 2 (which cloud).**
 **Acceptance criteria:**
 - [ ] `terraform validate` and `plan` succeed for staging
-- [ ] All secrets come from the secrets manager; nothing sensitive lives in state outputs
-- [ ] Staging is created from scratch with no console steps (documented)
-**Verification:** `terraform plan` on staging; a tflint/checkov scan
+- [ ] Cluster is private by default with node pools sized from variables
+- [ ] tflint/checkov report no high findings
+**Verification:** `terraform plan` on staging; tflint/checkov scan
 **Dependencies:** Task 29, Open Question 2
-**Files:** `deploy/terraform/**`
-**Scope:** L — split per module once the cloud is chosen
+**Files:** `deploy/terraform/modules/network/**`, `deploy/terraform/modules/cluster/**`, `deploy/terraform/envs/staging/main.tf`
+**Scope:** M
+
+### Task 30b: Terraform — data services (Postgres, Redis, vector store)
+**Description:** Modules for managed Postgres, Redis and the vector store (managed Qdrant or a cluster deployment), wired into staging.
+**Acceptance criteria:**
+- [ ] `terraform plan` for staging includes all three, in private subnets only
+- [ ] Backups and encryption at rest are enabled
+- [ ] Connection details are written to the secrets manager, not to state outputs
+**Verification:** `terraform plan` on staging; checkov scan
+**Dependencies:** Task 30a
+**Files:** `deploy/terraform/modules/{postgres,redis,vectorstore}/**`, `deploy/terraform/envs/staging/main.tf`
+**Scope:** M
+
+### Task 30c: Terraform — secrets, IAM + staging composition
+**Description:** Secrets manager and IAM modules (workload identity for the api and worker), the per-environment stacks, and docs for creating staging from scratch.
+**Acceptance criteria:**
+- [ ] All secrets come from the secrets manager; nothing sensitive lives in state outputs
+- [ ] Workloads use least-privilege identities, with no static keys
+- [ ] Staging is created from scratch with no console steps (documented)
+**Verification:** `terraform plan`/`apply` on staging; checkov scan
+**Dependencies:** Task 30b
+**Files:** `deploy/terraform/modules/{secrets,iam}/**`, `deploy/terraform/envs/*/`, `docs/runbooks/terraform-bootstrap.md`
+**Scope:** M
+
+## Checkpoint 7c: After Tasks 30a–30c
+- [ ] Staging created from scratch with `terraform apply`; checkov clean
+- [ ] Human review of IAM and network exposure
 
 ### Task 31: Load tests (k6) + runbooks + blue/green reindex commands
 **Description:** Add k6 scripts in `tests/load/` and `make load-test`. Add `make reindex TARGET_INDEX=… EMBED_MODEL=…`, `make promote-index` (an atomic Qdrant alias swap; OpenSearch alias too) with the old index kept 7 days for rollback. Add `docs/runbooks/` for each README operations scenario.
 **Acceptance criteria:**
 - [ ] The load test reports p50/p95/p99 and error rate at the target RPS; staging passes at 2× peak
 - [ ] Reindex → eval → promote → rollback works on a staging-like setup
-- [ ] Every row of the README's runbook table has a runbook document
+- [ ] Every row of the PRD's runbook table has a runbook document
 **Verification:** `make load-test` against staging; reindex rehearsal
 **Dependencies:** Task 28
 **Files:** `tests/load/*.js`, `src/ragforge/storage/reindex.py`, `Makefile`, `docs/runbooks/*.md`
 **Scope:** M
 
-## Checkpoint 7: After Tasks 27–31
+## Checkpoint 7: After Tasks 27–31 (incl. 30a–30c)
 - [ ] Staging deployed via CI; load test at 2× peak passes; reindex rehearsed
 - [ ] Human review before connectors
 
@@ -429,6 +523,11 @@ Each connector emits `DocumentEvent`s with ACLs, supports incremental sync (CDC 
 **Acceptance criteria:** Graph delta-query sync; site and item permissions mapped to ACLs; deletes propagate; contract tests pass
 **Verification:** `/verify` | **Dependencies:** Task 32 | **Files:** `src/ragforge/connectors/sharepoint.py`, tests | **Scope:** M
 
+## Checkpoint 8a: After Tasks 32–34
+- [ ] `/verify` + `make lint test` pass
+- [ ] S3, Confluence and SharePoint connectors pass contract tests
+- [ ] Human review before continuing
+
 ### Task 35: Google Drive connector
 **Acceptance criteria:** Changes API sync; sharing permissions mapped to ACLs; Google Docs exported to parseable formats; contract tests pass
 **Verification:** `/verify` | **Dependencies:** Task 32 | **Files:** `src/ragforge/connectors/gdrive.py`, tests | **Scope:** M
@@ -445,6 +544,6 @@ Each connector emits `DocumentEvent`s with ACLs, supports incremental sync (CDC 
 **Verification:** `/verify`; manual walkthrough | **Dependencies:** Tasks 26, 31; Open Question 7 (UI stack) | **Files:** `apps/admin/**` | **Scope:** M–L (split once the stack is chosen)
 
 ## Checkpoint 8: Complete
-- [ ] Every item in the README's Production Readiness Checklist verified or explicitly deferred
+- [ ] Every item in the PRD's Production Readiness Checklist verified or explicitly deferred
 - [ ] security-auditor + code-reviewer agents run on the full system
 - [ ] Human sign-off
