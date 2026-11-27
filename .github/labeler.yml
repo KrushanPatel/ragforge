@@ -1,0 +1,16 @@
+# Labels applied to PRs by changed paths (actions/labeler). Labels are created by scripts/setup-labels.sh.
+documentation:
+  - changed-files:
+      - any-glob-to-any-file: ["**/*.md", "docs/**"]
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file: [".github/**"]
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file: ["tests/**"]
+
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file: ["pyproject.toml", "uv.lock"]

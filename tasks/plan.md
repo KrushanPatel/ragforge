@@ -152,6 +152,6 @@ Split tasks use letter suffixes (1a/1b, 2a/2b, 30a–30c); numbering is otherwis
 3. **Queue in production:** Kafka (PRD default) or a managed alternative? Dev uses Redis Streams either way.
 4. **LLM in staging/prod:** hosted provider or self-hosted? Dev uses Ollama, as you chose earlier.
 5. **Golden dataset** (fills `docs/PRD.md` → Product Context → *Data and domain*; gates Task 5): which documents and domain? The spec examples are billing/refund policies. Who reviews the Q&A triples?
-6. **Git workflow:** the README says feature branch + PR with code-owner approval, but your saved preference is to commit to `main`. Which applies here?
+6. ~~**Git workflow.**~~ **Resolved (2026-11-27):** feature branch + PR for everyone. Branches are named `<type>/<desc>`, commits are signed off (DCO), and merging needs CI plus a code-owner approval. See `CONTRIBUTING.md`.
 7. **Admin UI stack** (Task 37): server-rendered FastAPI templates or a separate frontend?
 8. **Rest of the PRD's Product Context:** who the users are, which team owns the system, the success metrics, and the non-goals for the first release.

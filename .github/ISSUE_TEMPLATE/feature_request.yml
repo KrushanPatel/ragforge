@@ -1,0 +1,50 @@
+name: Feature request
+description: Suggest an idea or improvement for Ragforge.
+title: "feat: "
+labels: ["enhancement", "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check [`docs/PRD.md`](https://github.com/KrushanPatel/ragforge/blob/main/docs/PRD.md) and [`tasks/plan.md`](https://github.com/KrushanPatel/ragforge/blob/main/tasks/plan.md) first. Your idea may already be planned.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What would you like to happen? Include API or CLI sketches if you have them.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Ingestion
+        - Retrieval
+        - Generation
+        - Evaluation
+        - API
+        - Observability
+        - Security
+        - Deployment / infra
+        - Docs
+        - Other
+    validations:
+      required: true
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I'd be willing to open a pull request for this.

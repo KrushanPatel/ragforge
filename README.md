@@ -2,9 +2,11 @@
 
 > A reference implementation and operating guide for building, evaluating, deploying, and running Retrieval-Augmented Generation (RAG) systems in production.
 
-[![CI](https://img.shields.io/badge/CI-passing-brightgreen)](#)
-[![Coverage](https://img.shields.io/badge/coverage-85%25-green)](#)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](#license)
+[![CI](https://github.com/KrushanPatel/ragforge/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/KrushanPatel/ragforge/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.12%2B-blue)](pyproject.toml)
+
+> **Status: early development.** The package skeleton, tooling and design docs exist, and the pipeline is being built in phases (see [`tasks/plan.md`](tasks/plan.md)). Sections marked *planned* describe the target interface, not what runs today. [Current Status & Local Development](#current-status--local-development) lists the commands that work now.
 
 ---
 
@@ -14,13 +16,14 @@
 2. [Key Features](#key-features)
 3. [Architecture](#architecture)
 4. [Repository Layout](#repository-layout)
-5. [Quick Start](#quick-start)
-6. [Configuration](#configuration)
-7. [API Reference](#api-reference)
-8. [Deployment](#deployment)
-9. [Troubleshooting](#troubleshooting)
-10. [Contributing](#contributing)
-11. [License](#license)
+5. [Current Status & Local Development](#current-status--local-development)
+6. [Quick Start (planned)](#quick-start)
+7. [Configuration (planned)](#configuration)
+8. [API Reference (planned)](#api-reference)
+9. [Deployment (planned)](#deployment)
+10. [Troubleshooting](#troubleshooting)
+11. [Contributing](#contributing)
+12. [License](#license)
 
 Design requirements and detailed specifications (ingestion, retrieval, generation, evaluation, observability, security, operations, readiness checklist) live in the [Product Requirements Document](docs/PRD.md).
 
@@ -158,11 +161,47 @@ ragforge/
 
 ---
 
-## Quick Start
+## Current Status & Local Development
+
+These commands work today. They're the same ones CI runs.
 
 ### Prerequisites
 
-- Python 3.11+
+- Python 3.12+ (`uv` can install it for you)
+- [uv](https://docs.astral.sh/uv/getting-started/installation/)
+
+### Quickstart
+
+```bash
+git clone https://github.com/KrushanPatel/ragforge.git
+cd ragforge
+uv sync              # creates .venv and installs runtime + dev dependencies from uv.lock
+uv run ragforge      # prints "Hello from ragforge!"
+```
+
+PyTorch is installed from the CPU-only index on Linux and Windows, so no GPU is needed. The first sync is still a large download.
+
+### Running tests and checks
+
+```bash
+uv run ruff check            # lint
+uv run ruff format --check   # formatting
+uv run pytest -q             # tests
+uv build                     # build sdist + wheel into dist/
+```
+
+To fix lint and formatting problems: `uv run ruff check --fix && uv run ruff format`.
+
+---
+
+## Quick Start
+
+> **Planned.** This section describes the target developer workflow. The Make targets, `.env.example`, local infrastructure and sample data arrive in Phase 1–2 of [`tasks/plan.md`](tasks/plan.md). Until then, use [Current Status & Local Development](#current-status--local-development).
+
+### Prerequisites
+
+- Python 3.12+
+- [uv](https://docs.astral.sh/uv/)
 - Docker and Docker Compose
 - `make`
 - An API key for your chosen LLM and embedding provider (or a local model server)
@@ -170,7 +209,7 @@ ragforge/
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/your-org/ragforge.git
+git clone https://github.com/KrushanPatel/ragforge.git
 cd ragforge
 make install          # creates venv, installs deps, sets up pre-commit hooks
 cp .env.example .env  # then fill in secrets
@@ -227,6 +266,8 @@ make eval DATASET=evals/datasets/golden_v3.jsonl
 ---
 
 ## Configuration
+
+> **Planned.** This describes the target design. See [`tasks/plan.md`](tasks/plan.md) for when it lands.
 
 Configuration is layered: `configs/base.yaml` → `configs/<env>.yaml` → environment variables. Secrets **only** come from environment variables or a secrets manager — never from YAML files.
 
@@ -306,6 +347,8 @@ guardrails:
 
 ## API Reference
 
+> **Planned.** This describes the target design. See [`tasks/plan.md`](tasks/plan.md) for when it lands.
+
 Interactive OpenAPI docs are served at `/docs`.
 
 ### `POST /v1/query`
@@ -355,6 +398,8 @@ Interactive OpenAPI docs are served at `/docs`.
 ---
 
 ## Deployment
+
+> **Planned.** This describes the target design. See [`tasks/plan.md`](tasks/plan.md) for when it lands.
 
 ### Environments
 
@@ -433,15 +478,18 @@ All cloud resources (networking, clusters, managed databases, secrets, IAM) are 
 
 ## Contributing
 
-1. Create a feature branch from `main`.
-2. Run `make lint test` locally.
-3. If your change affects retrieval, prompts, chunking, or models, run `make eval` and attach the report to your PR.
-4. Open a pull request using the template; at least one approval from a code owner is required.
+Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), which covers dev setup, branch and commit conventions (Conventional Commits, with a DCO sign-off), local checks and the review process. In short:
 
-See `CONTRIBUTING.md` for coding standards and `docs/adr/` for architecture decision records.
+1. Pick an issue labelled [`good first issue`](https://github.com/KrushanPatel/ragforge/labels/good%20first%20issue) or [`help wanted`](https://github.com/KrushanPatel/ragforge/labels/help%20wanted), and comment to claim it.
+2. Create a branch from `main` (`feat/...`, `fix/...`, `docs/...`).
+3. Run `uv run ruff check`, `uv run ruff format --check` and `uv run pytest -q` locally.
+4. Once the evaluation harness exists (Task 5), any change that affects retrieval, prompts, chunking or models should include `make eval` results.
+5. Open a pull request using the template. CI must pass, and a code owner must approve.
+
+Please follow the [Code of Conduct](CODE_OF_CONDUCT.md), and report vulnerabilities privately as described in [SECURITY.md](SECURITY.md). Design decisions are recorded in [`docs/PRD.md`](docs/PRD.md) and [`tasks/plan.md`](tasks/plan.md).
 
 ---
 
 ## License
 
-Licensed under the Apache License 2.0. See `LICENSE` for details.
+Licensed under the Apache License 2.0. See [LICENSE](LICENSE) for details.
