@@ -14,6 +14,8 @@ from ragforge.retrieval.base import Hit
 
 SUFFIXES = {".md", ".markdown", ".txt"}
 HIT_FIELDS = ("path", "start_line", "end_line", "text")
+# A stored file is up to date only if all of these match; changing any one re-chunks it.
+VERSION_FIELDS = ("file_sha256", "chunk_chars", "chunk_overlap_lines")
 
 
 @dataclass
@@ -72,8 +74,9 @@ class LocalQdrantIndex:
                 ),
             )
 
-    def _stored_hashes(self, root: str) -> dict[str, str]:
-        hashes: dict[str, str] = {}
+    def _stored_versions(self, root: str) -> dict[str, dict[str, object]]:
+        """For each file indexed under ``root``, the payload fields in ``VERSION_FIELDS``."""
+        versions: dict[str, dict[str, object]] = {}
         offset = None
         while True:
             points, offset = self._client.scroll(
@@ -81,36 +84,46 @@ class LocalQdrantIndex:
                 _match(root=root),
                 limit=1000,
                 offset=offset,
-                with_payload=["path", "file_sha256"],
+                with_payload=["path", *VERSION_FIELDS],
                 with_vectors=False,
             )
             for p in points:
                 assert p.payload is not None
-                hashes[p.payload["path"]] = p.payload["file_sha256"]
+                versions[p.payload["path"]] = {f: p.payload.get(f) for f in VERSION_FIELDS}
             if offset is None:
-                return hashes
+                return versions
 
     def sync(self, root: Path, chunk_chars: int, overlap_lines: int) -> SyncReport:
-        """Bring the index in line with ``root``: add new or changed files, drop deleted ones."""
+        """Bring the index in line with ``root``: add new or changed files, drop deleted ones.
+
+        A file is re-chunked when its content or the chunk settings changed since it was
+        indexed.
+        """
         self._ensure_collection()
         root_key = str(root.resolve())
-        stored = self._stored_hashes(root_key)
+        stored = self._stored_versions(root_key)
         report = SyncReport()
         seen: set[str] = set()
         for file in find_files(root):
             path, data = str(file.resolve()), file.read_bytes()
             seen.add(path)
-            sha = hashlib.sha256(data).hexdigest()
-            if stored.get(path) == sha:
+            version = {
+                "file_sha256": hashlib.sha256(data).hexdigest(),
+                "chunk_chars": chunk_chars,
+                "chunk_overlap_lines": overlap_lines,
+            }
+            if stored.get(path) == version:
                 report.unchanged += 1
                 continue
             try:
                 text = data.decode("utf-8")
             except UnicodeDecodeError:
+                # Drop chunks from an earlier UTF-8 version, so ask can't cite stale text.
+                self._client.delete(self._collection, _match(root=root_key, path=path))
                 report.skipped.append(path)
                 continue
             self._replace_file(
-                root_key, path, sha, split_lines(path, text, chunk_chars, overlap_lines)
+                root_key, path, version, split_lines(path, text, chunk_chars, overlap_lines)
             )
             report.indexed.append(path)
         for path in stored.keys() - seen:
@@ -118,16 +131,20 @@ class LocalQdrantIndex:
             report.removed.append(path)
         return report
 
-    def _replace_file(self, root_key: str, path: str, sha: str, chunks: list[Chunk]) -> None:
+    def _replace_file(
+        self, root_key: str, path: str, version: dict[str, object], chunks: list[Chunk]
+    ) -> None:
         """Drop a file's old points, then store its new chunks (none if the file is blank)."""
         self._client.delete(self._collection, _match(root=root_key, path=path))
         if not chunks:
             return
         vectors = self._embedder.embed_documents([c.text for c in chunks])
-        extra = {"root": root_key, "file_sha256": sha, "embed_model": self._embedder.model_name}
+        extra = {"root": root_key, "embed_model": self._embedder.model_name} | version
+        sha = version["file_sha256"]
         points = [
             models.PointStruct(
-                id=str(uuid.uuid5(uuid.NAMESPACE_URL, f"{path}:{c.start_line}:{sha}")),
+                # The root is part of the ID, so overlapping folders keep separate points.
+                id=str(uuid.uuid5(uuid.NAMESPACE_URL, f"{root_key}:{path}:{c.start_line}:{sha}")),
                 vector=vector,
                 payload=asdict(c) | extra,
             )

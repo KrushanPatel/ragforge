@@ -70,6 +70,15 @@ def test_split_lines_keeps_an_overlong_line_whole_and_skips_blank_chunks() -> No
     assert len(chunks[1].text) == 500
 
 
+def test_split_lines_counts_only_newlines_as_line_breaks() -> None:
+    # Editors and grep -n don't break lines on \f or U+2028, so citations mustn't either.
+    text = "one\r\ntwo \f page\r\nthree   sep\nfour\n"
+    chunks = split_lines("f.md", text, max_chars=1000, overlap_lines=0)
+
+    assert [(c.start_line, c.end_line) for c in chunks] == [(1, 4)]
+    assert chunks[0].text.split("\n")[3] == "four"
+
+
 # --- CLI ---
 
 
@@ -114,6 +123,49 @@ def test_ask_only_searches_the_given_folder(docs: Path) -> None:
     assert result.exit_code == 0, result.output
     assert "config.md" not in result.output
     assert "retrieval.md" in result.output
+
+
+def test_changed_chunk_settings_reindex_unchanged_files(
+    docs: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runner.invoke(ragforge.app, ["index", "docs"])
+    monkeypatch.setenv("RAGFORGE_CHUNK_OVERLAP_LINES", "0")
+
+    result = runner.invoke(ragforge.app, ["index", "docs"])
+
+    assert "Indexed 3 file(s), 0 unchanged" in result.output, result.output
+
+
+def test_file_that_stops_being_utf8_loses_its_old_chunks(docs: Path) -> None:
+    runner.invoke(ragforge.app, ["index", "docs"])
+    (docs / "notes.txt").write_bytes("Pingüinos en el hielo.\n".encode("latin-1"))
+
+    result = runner.invoke(ragforge.app, ["ask", "docs", "kittens afternoon"])
+
+    assert result.exit_code == 0, result.output
+    assert "skipped (not UTF-8): docs/notes.txt" in result.output
+    assert "Kittens" not in result.output
+
+
+def test_indexing_a_subfolder_keeps_the_parent_index_intact(docs: Path) -> None:
+    runner.invoke(ragforge.app, ["index", "docs"])
+    runner.invoke(ragforge.app, ["ask", "docs/guides", "retrieval"])
+
+    result = runner.invoke(ragforge.app, ["index", "docs"])
+
+    assert "Indexed 0 file(s), 3 unchanged" in result.output, result.output
+
+
+def test_paths_with_brackets_are_printed_verbatim(docs: Path) -> None:
+    (docs / "notes[draft].md").write_text("Penguins waddle across the ice.\n")
+    (docs / "odd[").mkdir()
+    (docs / "odd[" / "x].md").write_text("Walruses bask on the ice floes.\n")  # "[/x]" in path
+
+    result = runner.invoke(ragforge.app, ["ask", "docs", "penguins waddle ice walruses"])
+
+    assert result.exit_code == 0, result.output
+    assert "docs/notes[draft].md:1-1" in result.output
+    assert "docs/odd[/x].md:1-1" in result.output
 
 
 def test_folder_without_docs_fails_clearly(tmp_path: Path, docs: Path) -> None:

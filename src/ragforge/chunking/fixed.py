@@ -16,8 +16,12 @@ def split_lines(path: str, text: str, max_chars: int, overlap_lines: int) -> lis
 
     A single line longer than ``max_chars`` becomes its own chunk. Each new chunk starts
     ``overlap_lines`` lines before the previous one ended, but always moves forward.
+    Only ``\\n`` (or ``\\r\\n``) ends a line, as in editors and ``grep -n``, so cited
+    line numbers match: ``str.splitlines`` would also split on ``\\f`` and U+2028.
     """
-    lines = text.splitlines()
+    lines = [line.removesuffix("\r") for line in text.split("\n")]
+    if lines[-1] == "":  # a trailing newline ends the last line; it doesn't start a new one
+        lines.pop()
     chunks: list[Chunk] = []
     start = 0
     while start < len(lines):

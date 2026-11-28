@@ -6,6 +6,7 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 
 from ragforge.config import Settings
 from ragforge.embeddings import Embedder, SentenceTransformerEmbedder
@@ -25,9 +26,10 @@ def make_embedder(settings: Settings) -> Embedder:
     return SentenceTransformerEmbedder(settings.embed_model, settings.embed_query_prefix)
 
 
-def _display(path: str) -> str:
+def _display(path: str | Path) -> str:
+    """A path for Rich markup: relative when under the working dir, and escaped."""
     rel = os.path.relpath(path)
-    return path if rel.startswith("..") else rel
+    return escape(str(path) if rel.startswith("..") else rel)
 
 
 def _sync(index: LocalQdrantIndex, path: Path, settings: Settings) -> SyncReport:
@@ -35,7 +37,7 @@ def _sync(index: LocalQdrantIndex, path: Path, settings: Settings) -> SyncReport
     for skipped in report.skipped:
         console.print(f"[yellow]skipped (not UTF-8):[/] {_display(skipped)}")
     if not (report.indexed or report.unchanged):
-        console.print(f"[red]No .md, .markdown or .txt files found under {path}[/]")
+        console.print(f"[red]No .md, .markdown or .txt files found under {_display(path)}[/]")
         raise typer.Exit(1)
     return report
 
@@ -49,7 +51,7 @@ def index(path: PathArg) -> None:
         console.print(
             f"Indexed {len(report.indexed)} file(s), {report.unchanged} unchanged, "
             f"{len(report.removed)} removed. "
-            f"{idx.count(str(path.resolve()))} chunks in {settings.index_dir}/"
+            f"{idx.count(str(path.resolve()))} chunks in {escape(str(settings.index_dir))}/"
         )
 
 
