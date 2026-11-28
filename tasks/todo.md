@@ -26,10 +26,11 @@ Split tasks use letter suffixes (1a/1b, 2a/2b, 30a–30c); numbering is otherwis
 **Acceptance criteria:**
 - [ ] `make install lint test` work; `make lint` runs ruff + mypy
 - [ ] `pre-commit run --all-files` passes
+- [ ] The CI `lint` job also runs mypy, so type errors block merges
 - [ ] CLAUDE.md reflects the new stack, points to `docs/PRD.md` and `tasks/`, and keeps the uv rule
 **Verification:** `/verify`; `make lint test` clean
 **Dependencies:** Task 1a
-**Files:** `Makefile`, `pyproject.toml`, `.pre-commit-config.yaml`, `CLAUDE.md`
+**Files:** `Makefile`, `pyproject.toml`, `.pre-commit-config.yaml`, `CLAUDE.md`, `.github/workflows/ci.yml`
 **Scope:** S
 
 ## Checkpoint 1a: After Tasks 1a–1b
