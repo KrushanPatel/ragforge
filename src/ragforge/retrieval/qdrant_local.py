@@ -122,9 +122,13 @@ class LocalQdrantIndex:
                 self._client.delete(self._collection, _match(root=root_key, path=path))
                 report.skipped.append(path)
                 continue
-            self._replace_file(
-                root_key, path, version, split_lines(path, text, chunk_chars, overlap_lines)
-            )
+            chunks = split_lines(path, text, chunk_chars, overlap_lines)
+            if not chunks and path not in stored:
+                # A blank file stores no points, so it never matches a stored version.
+                # With nothing old to drop either, there is nothing to do.
+                report.unchanged += 1
+                continue
+            self._replace_file(root_key, path, version, chunks)
             report.indexed.append(path)
         for path in stored.keys() - seen:
             self._client.delete(self._collection, _match(root=root_key, path=path))

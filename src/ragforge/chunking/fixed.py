@@ -15,7 +15,8 @@ def split_lines(path: str, text: str, max_chars: int, overlap_lines: int) -> lis
     """Group whole lines into chunks of at most ``max_chars``.
 
     A single line longer than ``max_chars`` becomes its own chunk. Each new chunk starts
-    ``overlap_lines`` lines before the previous one ended, but always moves forward.
+    ``overlap_lines`` lines before the previous one ended (capped at half the previous
+    chunk's lines), but always moves forward.
     Only ``\\n`` (or ``\\r\\n``) ends a line, as in editors and ``grep -n``, so cited
     line numbers match: ``str.splitlines`` would also split on ``\\f`` and U+2028.
     """
@@ -34,5 +35,7 @@ def split_lines(path: str, text: str, max_chars: int, overlap_lines: int) -> lis
             chunks.append(Chunk(path, start + 1, end, body))
         if end >= len(lines):
             break
-        start = max(end - overlap_lines, start + 1)
+        # Overlap at most half the chunk, so a large setting can't make chunks advance
+        # one line at a time (each line then lands in at most two chunks).
+        start = max(end - min(overlap_lines, (end - start) // 2), start + 1)
     return chunks

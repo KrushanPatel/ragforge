@@ -28,8 +28,11 @@ def make_embedder(settings: Settings) -> Embedder:
 
 def _display(path: str | Path) -> str:
     """A path for Rich markup: relative when under the working dir, and escaped."""
-    rel = os.path.relpath(path)
-    return escape(str(path) if rel.startswith("..") else rel)
+    try:
+        rel = os.path.relpath(path)
+    except ValueError:  # Windows: path and working dir are on different drives
+        return escape(str(path))
+    return escape(str(path) if Path(rel).parts[0] == os.pardir else rel)
 
 
 def _sync(index: LocalQdrantIndex, path: Path, settings: Settings) -> SyncReport:
@@ -37,7 +40,13 @@ def _sync(index: LocalQdrantIndex, path: Path, settings: Settings) -> SyncReport
     for skipped in report.skipped:
         console.print(f"[yellow]skipped (not UTF-8):[/] {_display(skipped)}")
     if not (report.indexed or report.unchanged):
-        console.print(f"[red]No .md, .markdown or .txt files found under {_display(path)}[/]")
+        if report.skipped:
+            console.print(
+                f"[red]No UTF-8 .md, .markdown or .txt files under {_display(path)} "
+                f"({len(report.skipped)} skipped as not UTF-8)[/]"
+            )
+        else:
+            console.print(f"[red]No .md, .markdown or .txt files found under {_display(path)}[/]")
         raise typer.Exit(1)
     return report
 

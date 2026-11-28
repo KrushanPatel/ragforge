@@ -70,6 +70,15 @@ def test_split_lines_keeps_an_overlong_line_whole_and_skips_blank_chunks() -> No
     assert len(chunks[1].text) == 500
 
 
+def test_split_lines_caps_overlap_at_half_a_chunk() -> None:
+    # A huge overlap used to advance one line per chunk: 17 chunks here instead of ~5.
+    text = "\n".join(f"line {i:02d}" for i in range(1, 21))  # 20 lines, 4 per chunk
+    chunks = split_lines("f.md", text, max_chars=32, overlap_lines=50)
+
+    assert [c.start_line for c in chunks] == [1, 3, 5, 7, 9, 11, 13, 15, 17]
+    assert chunks[-1].end_line == 20
+
+
 def test_split_lines_counts_only_newlines_as_line_breaks() -> None:
     # Editors and grep -n don't break lines on \f or U+2028, so citations mustn't either.
     text = "one\r\ntwo \f page\r\nthree   sep\nfour\n"
@@ -166,6 +175,41 @@ def test_paths_with_brackets_are_printed_verbatim(docs: Path) -> None:
     assert result.exit_code == 0, result.output
     assert "docs/notes[draft].md:1-1" in result.output
     assert "docs/odd[/x].md:1-1" in result.output
+
+
+def test_blank_file_counts_as_unchanged_on_rerun(docs: Path) -> None:
+    (docs / "TODO.md").write_text("  \n\n")
+    runner.invoke(ragforge.app, ["index", "docs"])
+
+    result = runner.invoke(ragforge.app, ["index", "docs"])
+
+    assert "Indexed 0 file(s), 4 unchanged" in result.output, result.output
+
+
+def test_folder_of_only_non_utf8_docs_says_so(tmp_path: Path, docs: Path) -> None:
+    latin = tmp_path / "latin"
+    latin.mkdir()
+    (latin / "a.txt").write_bytes("Pingüinos.\n".encode("latin-1"))
+
+    result = runner.invoke(ragforge.app, ["ask", "latin", "anything"])
+
+    assert result.exit_code == 1
+    assert "No UTF-8 .md, .markdown or .txt files under latin" in result.output
+    assert "1 skipped" in result.output
+
+
+def test_display_keeps_dot_dot_names_and_survives_other_drives(
+    docs: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert ragforge._display(str(tmp_path / "..notes.md")) == "..notes.md"
+    outside = str(tmp_path.parent / "x.md")
+    assert ragforge._display(outside) == outside
+
+    def other_drive(path: str, start: str = ".") -> str:
+        raise ValueError("path is on mount 'D:', start on mount 'C:'")
+
+    monkeypatch.setattr(ragforge.os.path, "relpath", other_drive)
+    assert ragforge._display("D:/docs/a.md") == "D:/docs/a.md"
 
 
 def test_folder_without_docs_fails_clearly(tmp_path: Path, docs: Path) -> None:
