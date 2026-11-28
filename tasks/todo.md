@@ -2,22 +2,57 @@
 
 Plan: `tasks/plan.md`. Spec: `docs/PRD.md` + `README.md`.
 
-Split tasks use letter suffixes (1a/1b, 2a/2b, 30a–30c); numbering is otherwise stable.
+Split tasks use letter suffixes (0a/0b, 1a/1b, 2a/2b, 30a–30c); numbering is otherwise stable.
 
 **Standard verification for every task:** `/verify` (`uv run ruff check; uv run ruff format --check; uv run pytest -q`). Once Task 1b lands, `make lint test` also runs mypy. Following CLAUDE.md, each task starts with a short plan and waits for approval before code is written. Run the code-reviewer agent at each checkpoint.
+
+---
+
+## Phase 0: Five-minute first run (embedded mode)
+
+Source: `docs/ideas/five-minute-first-run.md`. This phase ships first: a developer clones the repo and gets cited passages over their own docs in under 5 minutes, with no Docker and no API key. The production stack (Tasks 1a onward) follows unchanged and reuses the interfaces built here.
+
+### Task 0a: `ragforge index` + `ragforge ask` with retrieval-only output
+**Description:** Replace the placeholder `main()` with a Typer app that has two commands. `ragforge index <path>` reads Markdown and plain-text files, splits them with a fixed-size splitter that keeps line numbers, embeds the chunks with a small CPU sentence-transformers model, and stores them in Qdrant local mode under `.ragforge/`. `ragforge ask <path> "<question>"` indexes the path if it isn't indexed yet, then prints the top passages, ranked, each cited as `path:line`. Embedding and search go through an `Embedder` and a `Retriever` interface that the production stack (Tasks 3–4) reuses. Add a minimal pydantic-settings `Settings` (env vars only) for the model name, the index directory and `top_k`. Task 1a layers YAML on top of it later.
+**Acceptance criteria:**
+- [ ] `uv run ragforge ask ./docs "…"` prints ranked passages with `path:line` citations, and no server, Docker or API key is needed
+- [ ] Running `ragforge index` twice on unchanged files doesn't duplicate points, and `.ragforge/` is gitignored
+- [ ] Code specific to embedded mode is under 150 lines; everything else sits behind the shared `Embedder`/`Retriever` interfaces
+**Verification:** `/verify` (one smoke test: a tiny fixture corpus, a fake embedder and Qdrant local mode in a temp dir); manual check: `uv run ragforge ask ./docs "How is config loaded?"` returns a relevant passage
+**Dependencies:** None. Settle Open Question 9 (default model) in this task's plan.
+**Files:** `src/ragforge/__init__.py`, `src/ragforge/config.py`, `src/ragforge/{chunking,embeddings,retrieval}/…`, `tests/unit/test_embedded.py` + `tests/fixtures/corpus/`, `.gitignore`
+**Scope:** M
+
+### Task 0b: Optional cited LLM answer + README quickstart
+**Description:** When an OpenAI-compatible endpoint is set through `Settings` (base URL, model, and an optional key from env), `ragforge ask` also writes a short answer that cites the retrieved passages by `path:line`. Without it, the output stays retrieval-only and says how to turn answers on. Use a thin httpx client, not a full gateway: Task 4's LLM gateway replaces it later. Put an embedded-mode quickstart at the top of the README (clone → `uv sync` → `uv run ragforge ask`), with a terminal GIF or asciinema recording, and link to the production stack below it.
+**Acceptance criteria:**
+- [ ] With the endpoint set, the answer cites only passages that were retrieved; without it, output is unchanged from 0a
+- [ ] A failing or unreachable endpoint prints a one-line error and still shows the passages, with no stack trace
+- [ ] The README opens with the embedded quickstart and recording, and the production stack is one link away
+**Verification:** `/verify` (client tested with `httpx.MockTransport`, so no new dependency); manual check: run against a local Ollama endpoint, then again with the endpoint unset
+**Dependencies:** Task 0a
+**Files:** `src/ragforge/generation/llm.py`, `src/ragforge/__init__.py`, `src/ragforge/config.py`, `README.md`, `tests/unit/test_ask_llm.py`
+**Scope:** S–M
+
+## Checkpoint 0: After Tasks 0a–0b
+- [ ] `/verify` passes
+- [ ] **Cold start fits in 5 minutes:** time `git clone && uv sync && uv run ragforge ask ./docs "…"` on a clean machine and record the time here. If it's over 5 minutes, revisit direction C (ONNX embeddings) in the idea doc
+- [ ] **Retrieval-only output is useful:** for 5 realistic questions over this repo's docs, the top 3 passages answer each one
+- [ ] **No split codebase:** embedded-only code is under 150 lines
+- [ ] Human review before the README change goes out. The post-launch check (stars and clones 2 weeks after posting the demo) is tracked in the idea doc, not here
 
 ---
 
 ## Phase 1: Foundation + thin end-to-end slice
 
 ### Task 1a: Layout + layered config
-**Description:** Create the README module layout under `src/ragforge/` and the `apps/`, `configs/`, `prompts/`, `evals/`, `deploy/`, `tests/{unit,integration,load}` directories. Add a layered config: `configs/base.yaml` → `<env>.yaml` → env vars, typed with pydantic-settings, with secrets taken only from env and `RAG_ENV` selecting the environment. Add `.env.example`.
+**Description:** Create the README module layout under `src/ragforge/` and the `apps/`, `configs/`, `prompts/`, `evals/`, `deploy/`, `tests/{unit,integration,load}` directories. Extend Task 0a's `Settings` into a layered config: `configs/base.yaml` → `<env>.yaml` → env vars, typed with pydantic-settings, with secrets taken only from env and `RAG_ENV` selecting the environment. Add `.env.example`.
 **Acceptance criteria:**
 - [ ] `Settings.load()` merges base → env YAML → env vars, and tests prove the override order
 - [ ] A secret key in YAML is rejected at load time
 - [ ] `.env.example` lists every env var the config reads, with no real values
 **Verification:** `/verify`; `RAG_ENV=staging uv run python -c "…Settings.load()"` shows staging values
-**Dependencies:** None
+**Dependencies:** Checkpoint 0 (Task 0b). `ragforge ask` keeps working with no YAML files present
 **Files:** `src/ragforge/config.py`, `configs/*.yaml`, `.env.example`, `tests/unit/test_config.py`
 **Scope:** S–M
 

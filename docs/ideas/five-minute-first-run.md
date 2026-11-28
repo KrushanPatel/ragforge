@@ -59,7 +59,7 @@ The bet: experienced developers decide from the README and one terminal run. A r
 ## Open questions
 
 - Which default model? `all-MiniLM-L6-v2` (fast, older) or `bge-small-en-v1.5` (better, similar size)?
-- Does Task 0 come before Task 1a, or reuse 1a's config layer? Reusing it means 1a shrinks to the minimum the demo needs.
+- ~~Does Task 0 come before Task 1a, or reuse 1a's config layer?~~ Resolved (2026-11-28): Task 0 comes first with a minimal env-only `Settings`, and Task 1a layers YAML onto it. See Tasks 0a and 0b in `tasks/todo.md`.
 - Is a published blog post or HN post part of the plan, or just the README?
 
 ## Context

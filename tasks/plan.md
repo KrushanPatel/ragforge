@@ -9,6 +9,8 @@ A production RAG system with these parts:
 - **A stateless FastAPI query service:** guardrails → rewrite → hybrid retrieval → rerank → context build → LLM gateway → output checks.
 - **Built in from the start:** ACL enforcement, caching, evaluation gates, OpenTelemetry/Prometheus observability, and Docker/Helm/Terraform deployment.
 
+Phase 0 ships first: an embedded mode (`ragforge ask`, with Qdrant local mode and no Docker or API key) so a developer gets cited passages over their own docs in under 5 minutes. See `docs/ideas/five-minute-first-run.md`.
+
 The work is sliced vertically. Phase 1 delivers a thin but real path from ingestion to the `/v1/query` endpoint to evaluation, and each later phase deepens one part of that path while keeping the system working and measured.
 
 ## Architecture Decisions
@@ -26,11 +28,14 @@ These resolve the swappable choices in the PRD's component table. Each one needs
 - **Reranker.** A sentence-transformers `CrossEncoder` adapter, with a hosted rerank adapter possible later.
 - **Config.** Layered `configs/base.yaml` → `configs/<env>.yaml` → env vars, loaded through pydantic-settings using a YAML settings source. Secrets come only from env vars.
 - **Auth.** OIDC JWT validation. In dev, a local signing key issues `DEV_TOKEN`.
+- **Embedded mode shares the production interfaces.** Task 0a defines the `Embedder` and `Retriever` interfaces and the first `Settings`. Task 1a layers YAML onto that `Settings`, Task 3 reuses `Embedder`, and Task 4's LLM gateway replaces 0b's thin httpx client. Code specific to embedded mode stays under 150 lines.
 - **Tooling additions** (via `uv add`): fastapi, uvicorn, sqlalchemy, alembic, psycopg, redis, opensearch-py, opentelemetry-*, prometheus-client, pyyaml, tiktoken (or the model tokenizer), and datasketch (MinHash). Dev tools: mypy, testcontainers, respx, plus k6 for load testing (outside Python). Each task adds only what it needs.
 
 ## Dependency Graph
 
 ```
+Task 0a ragforge index/ask (local Qdrant, retrieval-only) → 0b optional LLM answer + README quickstart
+        │
 Task 1a layout/config → 1b tooling/CLAUDE.md → 2a compose+schema → 2b API skeleton
         │
         ├── Task 3 sync ingest (parse→chunk→embed→Qdrant+Postgres)
@@ -54,7 +59,12 @@ Phases 2 and 3 depend only on Phase 1 (Checkpoint 1) and can run in parallel. Ta
 
 Full task details (acceptance criteria, verification, files) are in `tasks/todo.md`.
 
-Split tasks use letter suffixes (1a/1b, 2a/2b, 30a–30c); numbering is otherwise stable. A checkpoint follows every 2–3 tasks.
+Split tasks use letter suffixes (0a/0b, 1a/1b, 2a/2b, 30a–30c); numbering is otherwise stable. A checkpoint follows every 2–3 tasks.
+
+### Phase 0: Five-minute first run (embedded mode)
+- [ ] Task 0a: `ragforge index` + `ragforge ask` with retrieval-only output
+- [ ] Task 0b: Optional cited LLM answer + README quickstart
+- [ ] **Checkpoint 0:** clean-machine cold start under 5 minutes; top 3 passages answer 5 realistic questions; embedded-only code under 150 lines
 
 ### Phase 1: Foundation + thin end-to-end slice
 - [ ] Task 1a: Layout + layered config
@@ -155,3 +165,4 @@ Split tasks use letter suffixes (1a/1b, 2a/2b, 30a–30c); numbering is otherwis
 6. ~~**Git workflow.**~~ **Resolved (2026-11-27):** feature branch + PR for everyone. Branches are named `<type>/<desc>`, commits are signed off (DCO), and merging needs CI plus a code-owner approval. See `CONTRIBUTING.md`.
 7. **Admin UI stack** (Task 37): server-rendered FastAPI templates or a separate frontend?
 8. **Rest of the PRD's Product Context:** who the users are, which team owns the system, the success metrics, and the non-goals for the first release.
+9. **Default embedded-mode model** (settled in Task 0a's plan): `all-MiniLM-L6-v2` (fast, older) or `bge-small-en-v1.5` (better, similar size)? The idea doc's other open question, whether a blog or HN post is part of the launch, doesn't block any task.
