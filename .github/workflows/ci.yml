@@ -60,6 +60,28 @@ jobs:
       - run: uv build
       - run: uvx twine check --strict dist/*
 
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+        with:
+          enable-cache: true
+      # Audit the exact pins in uv.lock, without installing anything (--no-deps --disable-pip).
+      # torch's "+cpu" local tag isn't on PyPI, so strip it: the CPU build shares upstream's advisories.
+      - name: Export locked dependencies
+        run: |
+          uv export --locked --no-hashes --no-emit-project --format requirements-txt \
+            | sed -E 's/\+cpu\b//' > requirements-audit.txt
+      - name: Audit for known vulnerabilities
+        run: >
+          uvx --from pip-audit==2.10.1 pip-audit
+          --no-deps --disable-pip --strict --progress-spinner off
+          -r requirements-audit.txt
+
   dco:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
