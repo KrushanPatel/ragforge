@@ -5,11 +5,10 @@ import re
 import uuid
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from types import TracebackType
 
 from qdrant_client import QdrantClient, models
 
-from ragforge.chunking import split_lines
+from ragforge.chunking import Chunk, split_lines
 from ragforge.embeddings import Embedder
 from ragforge.retrieval.base import Hit
 
@@ -47,6 +46,11 @@ def _match(**values: str) -> models.Filter:
     )
 
 
+def _root_filter(root: str | None) -> models.Filter | None:
+    """Limit a query to one indexed folder, or search everything when ``root`` is None."""
+    return _match(root=root) if root else None
+
+
 class LocalQdrantIndex:
     def __init__(self, index_dir: Path, embedder: Embedder) -> None:
         self._client = QdrantClient(path=str(index_dir))
@@ -56,7 +60,7 @@ class LocalQdrantIndex:
     def __enter__(self) -> "LocalQdrantIndex":
         return self
 
-    def __exit__(self, *exc: type[BaseException] | BaseException | TracebackType | None) -> None:
+    def __exit__(self, *exc_info: object) -> None:
         self._client.close()
 
     def _ensure_collection(self) -> None:
@@ -105,29 +109,31 @@ class LocalQdrantIndex:
             except UnicodeDecodeError:
                 report.skipped.append(path)
                 continue
-            self._client.delete(self._collection, _match(root=root_key, path=path))
-            chunks = split_lines(path, text, chunk_chars, overlap_lines)
-            if chunks:
-                vectors = self._embedder.embed_documents([c.text for c in chunks])
-                extra = {
-                    "root": root_key,
-                    "file_sha256": sha,
-                    "embed_model": self._embedder.model_name,
-                }
-                points = [
-                    models.PointStruct(
-                        id=str(uuid.uuid5(uuid.NAMESPACE_URL, f"{path}:{c.start_line}:{sha}")),
-                        vector=v,
-                        payload=asdict(c) | extra,
-                    )
-                    for c, v in zip(chunks, vectors, strict=True)
-                ]
-                self._client.upsert(self._collection, points)
+            self._replace_file(
+                root_key, path, sha, split_lines(path, text, chunk_chars, overlap_lines)
+            )
             report.indexed.append(path)
         for path in stored.keys() - seen:
             self._client.delete(self._collection, _match(root=root_key, path=path))
             report.removed.append(path)
         return report
+
+    def _replace_file(self, root_key: str, path: str, sha: str, chunks: list[Chunk]) -> None:
+        """Drop a file's old points, then store its new chunks (none if the file is blank)."""
+        self._client.delete(self._collection, _match(root=root_key, path=path))
+        if not chunks:
+            return
+        vectors = self._embedder.embed_documents([c.text for c in chunks])
+        extra = {"root": root_key, "file_sha256": sha, "embed_model": self._embedder.model_name}
+        points = [
+            models.PointStruct(
+                id=str(uuid.uuid5(uuid.NAMESPACE_URL, f"{path}:{c.start_line}:{sha}")),
+                vector=vector,
+                payload=asdict(c) | extra,
+            )
+            for c, vector in zip(chunks, vectors, strict=True)
+        ]
+        self._client.upsert(self._collection, points)
 
     def search(self, query_vector: list[float], k: int, root: str | None = None) -> list[Hit]:
         if not self._client.collection_exists(self._collection):
@@ -137,7 +143,7 @@ class LocalQdrantIndex:
             query=query_vector,
             limit=k,
             with_payload=True,
-            query_filter=_match(root=root) if root else None,
+            query_filter=_root_filter(root),
         )
         return [
             Hit(score=p.score, **{f: (p.payload or {})[f] for f in HIT_FIELDS})
@@ -147,5 +153,4 @@ class LocalQdrantIndex:
     def count(self, root: str | None = None) -> int:
         if not self._client.collection_exists(self._collection):
             return 0
-        query_filter = _match(root=root) if root else None
-        return self._client.count(self._collection, count_filter=query_filter).count
+        return self._client.count(self._collection, count_filter=_root_filter(root)).count

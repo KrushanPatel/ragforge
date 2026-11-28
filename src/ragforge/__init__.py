@@ -45,10 +45,11 @@ def index(path: PathArg) -> None:
     """Index Markdown and text files under PATH into the local store."""
     settings = Settings()
     with LocalQdrantIndex(settings.index_dir, make_embedder(settings)) as idx:
-        r = _sync(idx, path, settings)
+        report = _sync(idx, path, settings)
         console.print(
-            f"Indexed {len(r.indexed)} file(s), {r.unchanged} unchanged, {len(r.removed)} "
-            f"removed. {idx.count(str(path.resolve()))} chunks in {settings.index_dir}/"
+            f"Indexed {len(report.indexed)} file(s), {report.unchanged} unchanged, "
+            f"{len(report.removed)} removed. "
+            f"{idx.count(str(path.resolve()))} chunks in {settings.index_dir}/"
         )
 
 
