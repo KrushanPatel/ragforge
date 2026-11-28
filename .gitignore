@@ -11,3 +11,6 @@ wheels/
 
 # Secrets
 .env
+
+# Embedded-mode index (ragforge index / ask)
+.ragforge/
