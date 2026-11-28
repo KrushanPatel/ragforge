@@ -136,7 +136,7 @@ Split tasks use letter suffixes (1a/1b, 2a/2b, 30a–30c); numbering is otherwis
 
 | Risk | Impact | Mitigation |
 |------|--------|------------|
-| Scope is very large (37 tasks) and later phases drift from early decisions | High | Checkpoint reviews after every phase; ADRs in `docs/adr/` for each Architecture Decision above |
+| Scope is very large (37 tasks) and later phases drift from early decisions | High | Checkpoint reviews after every phase; ADRs in [`docs/adr/`](../docs/adr/) for each Architecture Decision above |
 | Running many services locally (Qdrant, Postgres, OpenSearch, Redis, Jaeger, Grafana) is heavy on the dev machine | Med | Compose profiles (`core` and `obs`); unit tests use fakes; testcontainers only in integration tests |
 | ACL leaks through cache or reranker | High | Single retrieval chokepoint (Task 20) built before the cache (Task 22); leakage suite per role in CI |
 | Eval gates are meaningless with a tiny golden set | High | Start with ~30 hand-written triples in Task 5 and grow toward 200+ before gates are enforced in Task 25; the human reviews the dataset |
